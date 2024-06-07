@@ -1,0 +1,46 @@
+version: '3.9'
+services:
+
+  django_app:
+    build: 
+      context: ./django
+    image: django_app:1.0
+    volumes:
+      - static_files:/django_folder/staticfiles
+    expose:
+      - 8000
+    container_name: django_app_container
+    command: >
+      sh -c "python manage.py migrate && gunicorn core.wsgi:application --bind 0.0.0.0:8000"
+    depends_on:
+      django_mysql:
+        condition: service_healthy
+
+  django_mysql:
+    image: mysql:8.4
+    container_name: django_mysql_container
+    environment:
+      MYSQL_DATABASE: 'django_db'
+      MYSQL_ALLOW_EMPTY_PASSWORD: 'true'
+    volumes:
+      - ./data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  django_nginx:
+    build: 
+      context: ./nginx
+    container_name: django_nginx_container
+    ports:
+      - 80:80
+    volumes:
+      - static_files:/home/myapp/staticfiles
+    depends_on:
+      - django_app
+
+volumes:
+  data:
+  static_files:
